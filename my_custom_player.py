@@ -1,4 +1,4 @@
-
+import random
 from sample_players import DataPlayer
 
 
@@ -36,11 +36,96 @@ class CustomPlayer(DataPlayer):
           Refer to (and use!) the Isolation.play() function to run games.
         **********************************************************************
         """
-        # TODO: Replace the example implementation below with your own search
+        # DONE: Replace the example implementation below with your own search
         #       method by combining techniques from lecture
         #
         # EXAMPLE: choose a random move without any search--this function MUST
         #          call self.queue.put(ACTION) at least once before time expires
         #          (the timer is automatically managed for you)
-        import random
+
+        # Choosing a random move just to have a move in case of timeout         
         self.queue.put(random.choice(state.actions()))
+
+        # If depth is 6 or less using an Opening Book,
+        # otherwise using Iterative Deepening with Minimax and Alpha-Beta Pruning 
+        if state.ply_count < 6 and state in self.data:
+            self.queue.put(self.data[state])
+        else:
+            self.iterative_deepening(state)
+
+
+    def iterative_deepening(self, state):
+        depth = 1
+        while True:
+            self.queue.put(self.alpha_beta_search(state, depth))
+            depth += 1
+
+
+    def alpha_beta_search(self, state, depth):
+        """
+        Implementation of Minimax with Alpha-Beta pruning
+        """
+        alpha = float("-inf")
+        beta = float("inf")
+        best_score = None
+        best_move = None
+
+        for action in state.actions():
+            value = self.min_value(state.result(action), depth - 1, alpha, beta)
+            alpha = max(alpha, value)
+            if best_score is None or value > best_score:
+                best_score = value
+                best_move = action
+
+        return best_move
+
+
+    def min_value(self, state, depth, alpha, beta):
+        """
+        Implementation of the min-value function as part of Minimax search
+        """
+        if state.terminal_test(): return state.utility(self.player_id)
+
+        if depth <= 0: return self.score(state)
+
+        value = float("inf")
+        for action in state.actions():
+            value = min(value, self.max_value(state.result(action), depth - 1, alpha, beta))
+            if value <= alpha:
+                return value
+            beta = min(beta, value)
+        return value
+
+
+    def max_value(self, state, depth, alpha, beta):
+        """
+        Implementation of the max-value function as part of Minimax search
+        """
+        if state.terminal_test(): return state.utility(self.player_id)
+
+        if depth <= 0: return self.score(state)
+
+        value = float("-inf")
+        for action in state.actions():
+            value = max(value, self.min_value(state.result(action), depth - 1, alpha, beta))
+            if value >= beta:
+                return value
+            alpha = max(alpha, value)
+        return value
+
+
+    def score(self, state):
+        # Using the #my_moves - #opponent_moves heuristic
+        return self.my_moves_vs_opponent_moves_heuristic(state)
+
+
+    def my_moves_vs_opponent_moves_heuristic(self, state):
+        """
+        Implementation of the #my_moves - #opponent_moves heuristic
+        """
+        own_loc = state.locs[self.player_id]
+        opp_loc = state.locs[1 - self.player_id]
+        own_liberties = state.liberties(own_loc)
+        opp_liberties = state.liberties(opp_loc)
+        return len(own_liberties) - len(opp_liberties)
+
